@@ -19,7 +19,7 @@ jobs:
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
           echo "Generated matrix: $matrix"
 
-  build:
+  build-plugin:
     name: Build, lint and unit tests
     needs: generate-matrix
     runs-on: ubuntu-latest
@@ -117,3 +117,50 @@ jobs:
           name: ${{ steps.metadata.outputs.plugin-id }}-${{ steps.metadata.outputs.plugin-version }}
           path: ${{ matrix.WORKING_DIRECTORY }}/${{ steps.metadata.outputs.plugin-id }}
           retention-days: 5
+
+  build-image:
+    name: Build docker image
+    needs: build-plugin
+    runs-on: ubuntu-latest
+    outputs:
+      plugin-id: ${{ needs.build-plugin.outputs.plugin-id }}
+      plugin-version: ${{ needs.build-plugin.outputs.plugin-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+       
+      - name: Download plugin
+        uses: actions/download-artifact@v4
+        with:
+          path: src/optiop
+          name: optiop-incidentmanagement-app-1.0.0
+
+      - name: see the plugin
+        run: ls src    
+
+      - name: Build nexvision grafana image
+        run: |
+          docker build -t incident-management-app:latest -f- . <<EOF
+          FROM grafana/grafana:latest
+          COPY ./src/optiop-incidentmanagement-app /var/lib/grafana/plugins/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Tag Docker image
+        run: |
+          docker tag incident-management-app:latest ${{ secrets.FRONTEND_IMAGE_REPO }}:latest
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ secrets.FRONTEND_IMAGE_REPO }}:latest
+      
+      
+      
