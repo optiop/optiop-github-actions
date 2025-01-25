@@ -6,6 +6,10 @@ on:
       image-name:
         required: true
         type: string 
+    secrets:
+      grafana-access-policy-token:
+        description: 'Grafana access policy token used to sign the plugins'
+        required: true
 
 jobs:
   generate-matrix:
@@ -37,7 +41,7 @@ jobs:
       plugin-version: ${{ steps.metadata.outputs.plugin-version }}
       has-backend: ${{ steps.check-for-backend.outputs.has-backend }}
     env:
-      GRAFANA_ACCESS_POLICY_TOKEN: ${{ secrets.GRAFANA_ACCESS_POLICY_TOKEN }}
+      GRAFANA_ACCESS_POLICY_TOKEN: ${{ secrets.grafana-access-policy-token }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js environment
